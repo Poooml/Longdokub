@@ -1,0 +1,157 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local LP = Players.LocalPlayer
+
+-- GUI ROOT
+local gui = Instance.new("ScreenGui")
+gui.Name = "TeleportUI"
+gui.ResetOnSpawn = false
+gui.Parent = game.CoreGui
+
+-- TOGGLE BUTTON
+local toggle = Instance.new("TextButton")
+toggle.Parent = gui
+toggle.Size = UDim2.fromOffset(50,50)
+toggle.Position = UDim2.fromScale(0.03,0.4)
+toggle.Text = "TP"
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 16
+toggle.TextColor3 = Color3.new(1,1,1)
+toggle.BackgroundColor3 = Color3.fromRGB(30,30,30)
+Instance.new("UICorner", toggle).CornerRadius = UDim.new(1,0)
+
+-- DRAG TOGGLE BUTTON (มือถือ + PC)
+local UIS = game:GetService("UserInputService")
+
+local dragging = false
+local dragStart
+local startPos
+
+toggle.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch
+	or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = toggle.Position
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+toggle.InputChanged:Connect(function(input)
+	if dragging and (input.UserInputType == Enum.UserInputType.Touch
+	or input.UserInputType == Enum.UserInputType.MouseMovement) then
+		local delta = input.Position - dragStart
+		toggle.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+-- MAIN FRAME
+local main = Instance.new("Frame")
+main.Parent = gui
+main.Size = UDim2.fromScale(0.5,0.6)
+main.Position = UDim2.fromScale(0.25,0.2)
+main.BackgroundColor3 = Color3.fromRGB(15,15,15)
+main.Visible = true
+main.Active = true
+main.Draggable = true
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,18)
+
+toggle.MouseButton1Click:Connect(function()
+	main.Visible = not main.Visible
+end)
+
+-- TITLE
+local title = Instance.new("TextLabel")
+title.Parent = main
+title.Size = UDim2.new(1,0,0,50)
+title.Text = "Teleport To Player"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.TextColor3 = Color3.new(1,1,1)
+title.BackgroundTransparency = 1
+
+-- SCROLL FRAME (สำคัญ)
+local scroll = Instance.new("ScrollingFrame")
+scroll.Parent = main
+scroll.Position = UDim2.new(0,10,0,60)
+scroll.Size = UDim2.new(1,-20,1,-130)
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.ScrollBarImageTransparency = 0.4
+scroll.BackgroundTransparency = 1
+scroll.AutomaticCanvasSize = Enum.AutomaticSize.None
+
+local layout = Instance.new("UIListLayout")
+layout.Parent = scroll
+layout.Padding = UDim.new(0,8)
+
+-- REFRESH BUTTON
+local refresh = Instance.new("TextButton")
+refresh.Parent = main
+refresh.Size = UDim2.new(1,-20,0,45)
+refresh.Position = UDim2.new(0,10,1,-55)
+refresh.Text = "Refresh Player List"
+refresh.Font = Enum.Font.Gotham
+refresh.TextSize = 14
+refresh.TextColor3 = Color3.new(1,1,1)
+refresh.BackgroundColor3 = Color3.fromRGB(35,35,35)
+Instance.new("UICorner", refresh).CornerRadius = UDim.new(0,12)
+
+-- GET ROOT (กันแมพเพี้ยน)
+local function getRoot(char)
+	return char:FindFirstChild("HumanoidRootPart")
+		or char:FindFirstChildWhichIsA("BasePart")
+end
+
+-- TELEPORT
+local function teleportTo(plr)
+	if not LP.Character or not plr.Character then return end
+	local myRoot = getRoot(LP.Character)
+	local targetRoot = getRoot(plr.Character)
+	if myRoot and targetRoot then
+		myRoot.CFrame = targetRoot.CFrame * CFrame.new(0,0,3)
+	end
+end
+
+-- BUILD PLAYER LIST
+local function buildList()
+	for _,c in ipairs(scroll:GetChildren()) do
+		if c:IsA("TextButton") then c:Destroy() end
+	end
+
+	for _,plr in ipairs(Players:GetPlayers()) do
+		if plr ~= LP then
+			local btn = Instance.new("TextButton")
+			btn.Parent = scroll
+			btn.Size = UDim2.new(1,0,0,42)
+			btn.Text = plr.Name
+			btn.Font = Enum.Font.Gotham
+			btn.TextSize = 14
+			btn.TextColor3 = Color3.new(1,1,1)
+			btn.BackgroundColor3 = Color3.fromRGB(22,22,22)
+			Instance.new("UICorner", btn).CornerRadius = UDim.new(0,10)
+
+			btn.MouseButton1Click:Connect(function()
+				teleportTo(plr)
+			end)
+		end
+	end
+
+	task.wait()
+	scroll.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+end
+
+refresh.MouseButton1Click:Connect(buildList)
+Players.PlayerAdded:Connect(buildList)
+Players.PlayerRemoving:Connect(buildList)
+
+buildList()
